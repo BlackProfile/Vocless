@@ -6,6 +6,8 @@
     <title>Vocal Remover AI</title>
     <!-- Tailwind CSS untuk styling modern dan responsif -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome untuk ikon loading -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
         body {
@@ -71,6 +73,32 @@
             color: #8c8c9a;
             font-weight: 600;
         }
+        .action-button {
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-weight: 600;
+            transition: background-color 0.2s, transform 0.2s;
+        }
+        .process-btn {
+            background-color: #0d9488;
+        }
+        .process-btn:hover {
+            background-color: #0f766e;
+            transform: scale(1.02);
+        }
+        .download-btn {
+            background-color: #6366f1;
+        }
+        .download-btn:hover {
+            background-color: #4f46e5;
+        }
+        .spinner {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100 p-8">
@@ -86,6 +114,9 @@
                 Unggah Lagu (mp3, wav)
             </label>
             <input type="file" id="audioFile" class="hidden" accept=".mp3, .wav, .aac">
+            <button id="processButton" class="action-button process-btn text-white mt-4 ml-4 hidden">
+                <i class="fas fa-magic"></i> Proses dengan AI
+            </button>
         </div>
 
         <!-- Bagian Pemutar dan Waveform -->
@@ -93,10 +124,15 @@
             <h2 class="text-xl title mb-4">Lagu Diputar: <span id="songTitle" class="text-white font-normal placeholder-text">Belum ada lagu yang diunggah</span></h2>
             <audio id="audioPlayer" controls class="w-full mb-4"></audio>
             <!-- Canvas untuk visualisasi waveform statis -->
-            <canvas id="waveform-canvas"></canvas>
+            <canvas id="waveform-canvas" class="hidden"></canvas>
             <!-- Canvas untuk visualisasi audio bar dinamis -->
-            <canvas id="visualizer-canvas"></canvas>
-            <p id="loading-message" class="text-center text-yellow-500 mt-2 hidden">Memuat audio...</p>
+            <canvas id="visualizer-canvas" class="hidden"></canvas>
+            <p id="loading-message" class="text-center text-yellow-500 mt-2 hidden">
+                <i class="fas fa-circle-notch spinner mr-2"></i> Memuat audio...
+            </p>
+            <p id="processing-message" class="text-center text-green-500 mt-2 hidden">
+                <i class="fas fa-robot spinner mr-2"></i> Memproses lagu Anda...
+            </p>
         </div>
 
         <!-- Bagian Hasil -->
@@ -107,7 +143,7 @@
                 <div id="vocalResult" class="mb-4">
                     <p class="placeholder-text">Hasil pemisahan vokal akan muncul di sini.</p>
                     <p class="placeholder-text text-sm mt-1">
-                        *(Simulasi: Fitur ini membutuhkan AI dan pemrosesan backend yang canggih. Bagian ini hanyalah placeholder.)*
+                        *(Simulasi: Klik "Proses dengan AI" di atas.)*
                     </p>
                 </div>
             </div>
@@ -117,7 +153,7 @@
                 <div id="chordResult" class="flex flex-wrap gap-2 justify-center">
                     <p class="placeholder-text">Chord akan dideteksi dan ditampilkan di sini.</p>
                     <p class="placeholder-text text-sm mt-1">
-                        *(Simulasi: Fitur ini membutuhkan analisis audio yang kompleks. Bagian ini hanyalah placeholder.)*
+                        *(Simulasi: Klik "Proses dengan AI" di atas.)*
                     </p>
                 </div>
             </div>
@@ -132,6 +168,10 @@
         const waveformCanvas = document.getElementById('waveform-canvas');
         const visualizerCanvas = document.getElementById('visualizer-canvas');
         const loadingMessage = document.getElementById('loading-message');
+        const processingMessage = document.getElementById('processing-message');
+        const processButton = document.getElementById('processButton');
+        const vocalResultDiv = document.getElementById('vocalResult');
+        const chordResultDiv = document.getElementById('chordResult');
         const waveformCtx = waveformCanvas.getContext('2d');
         const visualizerCtx = visualizerCanvas.getContext('2d');
 
@@ -143,22 +183,71 @@
             const file = event.target.files[0];
             if (file) {
                 loadingMessage.classList.remove('hidden');
+                processButton.classList.add('hidden');
                 songTitle.textContent = file.name;
-
-                // Menggunakan URL objek untuk pemutar audio
+                
+                // Reset hasil sebelumnya
+                vocalResultDiv.innerHTML = `<p class="placeholder-text">Hasil pemisahan vokal akan muncul di sini.</p><p class="placeholder-text text-sm mt-1">*(Simulasi: Klik "Proses dengan AI" di atas.)*</p>`;
+                chordResultDiv.innerHTML = `<p class="placeholder-text">Chord akan dideteksi dan ditampilkan di sini.</p><p class="placeholder-text text-sm mt-1">*(Simulasi: Klik "Proses dengan AI" di atas.)*</p>`;
+                
                 const audioUrl = URL.createObjectURL(file);
                 audioPlayer.src = audioUrl;
 
-                // Menggunakan FileReader untuk membaca data untuk waveform
                 const reader = new FileReader();
                 reader.onload = async (e) => {
                     const audioBuffer = await new (window.AudioContext || window.webkitAudioContext)().decodeAudioData(e.target.result);
                     drawWaveform(audioBuffer);
                     loadingMessage.classList.add('hidden');
+                    processButton.classList.remove('hidden');
+                    waveformCanvas.classList.remove('hidden');
                 };
                 reader.readAsArrayBuffer(file);
             }
         });
+
+        // --- Mendengarkan saat tombol proses diklik ---
+        processButton.addEventListener('click', () => {
+            // Tampilkan pesan "Memproses..." dan sembunyikan tombol
+            processingMessage.classList.remove('hidden');
+            processButton.classList.add('hidden');
+
+            // Simulasikan proses AI dengan delay 3 detik
+            setTimeout(() => {
+                // Sembunyikan pesan "Memproses..."
+                processingMessage.classList.add('hidden');
+
+                // Tampilkan hasil simulasi
+                showSimulatedResults();
+            }, 3000); // Delay 3 detik
+        });
+        
+        // --- Fungsi untuk menampilkan hasil simulasi ---
+        function showSimulatedResults() {
+            // Hasil Vokal & Musik
+            vocalResultDiv.innerHTML = `
+                <div class="mb-2">
+                    <p class="text-green-400 font-bold mb-2"><i class="fas fa-check-circle mr-2"></i> Pemisahan berhasil!</p>
+                    <a href="#" class="download-btn text-white mt-2 mr-2 inline-block px-4 py-2 rounded-lg">
+                        <i class="fas fa-microphone-alt mr-1"></i> Unduh Vokal
+                    </a>
+                    <a href="#" class="download-btn text-white mt-2 inline-block px-4 py-2 rounded-lg">
+                        <i class="fas fa-music mr-1"></i> Unduh Musik
+                    </a>
+                </div>
+                <p class="text-gray-400 text-sm mt-2">*Ini adalah tautan unduhan simulasi.</p>
+            `;
+
+            // Hasil Deteksi Chord (simulasi sederhana)
+            const simulatedChords = ["C", "G", "Am", "F", "C", "G", "C"];
+            const chordHtml = simulatedChords.map(chord => `
+                <span class="chord-box py-1 px-4 text-sm">${chord}</span>
+            `).join('');
+            chordResultDiv.innerHTML = `
+                <div class="flex flex-wrap gap-2 justify-center w-full">
+                    ${chordHtml}
+                </div>
+            `;
+        }
 
         // --- Mengatur visualizer saat lagu diputar ---
         audioPlayer.addEventListener('play', () => {
@@ -168,10 +257,10 @@
                 source = audioContext.createMediaElementSource(audioPlayer);
                 analyser = audioContext.createAnalyser();
 
-                // Mengatur properti analyser
                 analyser.fftSize = 256;
                 source.connect(analyser);
                 analyser.connect(audioContext.destination);
+                visualizerCanvas.classList.remove('hidden');
             }
             drawVisualizer();
         });
@@ -209,17 +298,14 @@
 
         // --- Fungsi untuk menggambar visualizer bilah dinamis ---
         function drawVisualizer() {
-            // Jika audio tidak diputar, hentikan visualisasi
             if (audioPlayer.paused) {
                 return;
             }
 
-            // Mengambil data frekuensi
             const bufferLength = analyser.frequencyBinCount;
             const dataArray = new Uint8Array(bufferLength);
             analyser.getByteFrequencyData(dataArray);
 
-            // Menggambar visualisasi
             visualizerCtx.clearRect(0, 0, visualizerCanvas.width, visualizerCanvas.height);
 
             const barWidth = (visualizerCanvas.width / bufferLength) * 2.5;
@@ -228,20 +314,14 @@
 
             for(let i = 0; i < bufferLength; i++) {
                 barHeight = dataArray[i];
-
-                // Menentukan warna bilah
                 const r = barHeight + (25 * (i/bufferLength));
                 const g = 250 * (i/bufferLength);
                 const b = 50;
                 visualizerCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-                
-                // Menggambar bilah
                 visualizerCtx.fillRect(x, visualizerCanvas.height - barHeight, barWidth, barHeight);
-
                 x += barWidth + 1;
             }
 
-            // Memanggil fungsi ini lagi untuk loop animasi
             requestAnimationFrame(drawVisualizer);
         }
 
